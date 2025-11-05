@@ -1,0 +1,121 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "testbmv"
+version = "0.1.0"
+description = "A test package for build metadata validation"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+  {name = "Test Author", email = "test@example.com"},
+  {name = "Another Author", email = "another@example.com"}
+]
+maintainers = [
+  {name = "Test Maintainer", email = "maintainer@example.com"}
+]
+keywords = ["test", "validation", "metadata"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Libraries :: Python Modules"
+]
+requires-python = ">=3.8"
+dependencies = [
+  "requests>=2.25.0",
+  "click>=8.0.0",
+  "pydantic>=1.8.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=6.0.0",
+  "black>=22.0.0",
+  "ruff>=0.1.0",
+  "mypy>=1.0.0"
+]
+test = [
+  "pytest>=6.0.0",
+  "pytest-cov>=4.0.0",
+  "coverage>=6.0.0"
+]
+docs = [
+  "sphinx>=4.0.0",
+  "sphinx-rtd-theme>=1.0.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/example/testbmv"
+Repository = "https://github.com/example/testbmv.git"
+Documentation = "https://testbmv.readthedocs.io"
+"Bug Tracker" = "https://github.com/example/testbmv/issues"
+
+[project.scripts]
+testbmv = "testbmv.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/testbmv"]
+
+[tool.black]
+line-length = 88
+target-version = ["py38"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM"]
+
+[tool.mypy]
+python_version = "3.8"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+
+[tool.bumpversion]
+current_version = "0.1.0"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+search = "{current_version}"
+replace = "{new_version}"
+regex = false
+ignore_missing_version = false
+ignore_missing_files = false
+tag = false
+sign_tags = false
+tag_name = "v{new_version}"
+tag_message = "Bump version: {current_version} → {new_version}"
+allow_dirty = false
+commit = false
+message = "Bump version: {current_version} → {new_version}"
+moveable_tags = []
+commit_args = ""
+setup_hooks = []
+pre_commit_hooks = []
+post_commit_hooks = []
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"

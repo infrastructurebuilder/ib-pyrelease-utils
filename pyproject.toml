@@ -1,0 +1,161 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ib-pyrelease-utils"
+version = "0.0.1"
+description = "Utilities for helping release projects effectively."
+readme = "README.md"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Mykel Alvis", email = "mykel.alvis@gmail.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Code Generators",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "bump-my-version>=1.2.4"
+]
+
+[dependency-groups]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+lint = [
+    "black>=25.9.0",
+    "ruff>=0.14.3",
+    "mypy>=1.18.2",
+]
+dev = [
+    {include-group = "test"},
+    {include-group = "lint"},
+]
+
+[project.scripts]
+#ibdatapy = "ibdata_pymerkle.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/infrastructurebuilder/ib-pyrelease-utils"
+Repository = "https://github.com/infrastructurebuilder/ib-pyrelease-utils"
+Issues = "https://github.com/infrastructurebuilder/ib-pyrelease-utils/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/main/python/ib_pyrelease_utils"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/README.md",
+    "/pyproject.toml",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["src/test/python"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+]
+
+[tool.coverage.run]
+source = ["src/main/python"]
+branch = true
+include = ["src/main/python/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 98.5
+include = ["src/main/python/*"]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "except ImportError:",
+    "__version__ = \"unknown\"",
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "N",  # pep8-naming
+    "UP", # pyupgrade
+]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple/"
+publish-url = "https://pypi.org/legacy/"
+
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+
+[tool.bumpversion]
+current_version = "0.0.1"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+search = "{current_version}"
+replace = "{new_version}"
+regex = false
+ignore_missing_version = false
+ignore_missing_files = false
+tag = false
+sign_tags = false
+tag_name = "v{new_version}"
+tag_message = "Bump version: {current_version} → {new_version}"
+allow_dirty = false
+commit = false
+message = "Bump version: {current_version} → {new_version}"
+moveable_tags = []
+commit_args = ""
+setup_hooks = []
+pre_commit_hooks = []
+post_commit_hooks = []
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+
+[[tool.bumpversion.files]]
+filename = "src/main/python/ib_pyrelease_utils/__init__.py"
