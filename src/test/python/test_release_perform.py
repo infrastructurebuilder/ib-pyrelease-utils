@@ -303,6 +303,10 @@ class TestReleasePerform(unittest.TestCase):
         checkout_path = self.temp_dir_path / "target" / "checkout"
         token = "test_token_123"
 
+        def mock_path_exists(self):
+            """Mock Path.exists to return False only for .envrc, True for others."""
+            return str(self) != ".envrc"
+
         with patch("ib_pyrelease_utils.basic.ensure_empty_directory"), patch(
             "ib_pyrelease_utils.basic.git"
         ), patch(
@@ -317,6 +321,8 @@ class TestReleasePerform(unittest.TestCase):
             "builtins.print"
         ), patch(
             "os.chdir"
+        ), patch.object(
+            Path, "exists", mock_path_exists
         ):
             mock_read_props.return_value = {"scm.tag": "v0.1.0"}
             mock_run_cmd.return_value = ""

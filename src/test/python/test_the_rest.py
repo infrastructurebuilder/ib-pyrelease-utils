@@ -236,36 +236,60 @@ class TestMainFunction(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
 
-    def test_main_with_missing_arguments(self):
-        """Test main() exits with error when no arguments provided."""
-        with patch("sys.argv", ["script"]):
+    def test_main_with_unknown_command(self):
+        """Test main() exits with error when unknown command provided."""
+        with patch("sys.argv", ["unknown_command"]):
             with patch("sys.stderr"):
                 with self.assertRaises(SystemExit) as cm:
                     main()
                 self.assertEqual(cm.exception.code, 1)
 
-    def test_main_with_too_many_arguments(self):
-        """Test main() exits with error when too many arguments provided."""
-        with patch("sys.argv", ["script", "arg1", "arg2"]):
-            with patch("sys.stderr"):
-                with self.assertRaises(SystemExit) as cm:
-                    main()
-                self.assertEqual(cm.exception.code, 1)
-
-    def test_main_with_valid_directory_no_release_properties(self):
-        """Test main() succeeds when directory exists and no release.properties."""
-        with patch("sys.argv", ["script", str(self.temp_dir_path)]):
-            with patch("ib_pyrelease_utils.basic.check_for_release") as mock_check:
+    def test_main_ib_prepare_no_args(self):
+        """Test main() with ib-prepare command and no additional arguments."""
+        with patch("sys.argv", ["ib-prepare"]):
+            with patch("ib_pyrelease_utils.basic.release_prepare") as mock_prepare:
                 main()
-                mock_check.assert_called_once_with(str(self.temp_dir_path))
+                mock_prepare.assert_called_once_with()
 
-    def test_main_calls_check_for_release(self):
-        """Test that main() calls check_for_release with directory argument."""
-        test_dir = "/test/directory"
-        with patch("sys.argv", ["script", test_dir]):
-            with patch("ib_pyrelease_utils.basic.check_for_release") as mock_check:
+    def test_main_ib_prepare_with_version(self):
+        """Test main() with ib-prepare command and version argument."""
+        with patch("sys.argv", ["ib-prepare", "1.2.3"]):
+            with patch("ib_pyrelease_utils.basic.release_prepare") as mock_prepare:
                 main()
-                mock_check.assert_called_once_with(test_dir)
+                mock_prepare.assert_called_once_with("1.2.3")
+
+    def test_main_ib_perform(self):
+        """Test main() with ib-perform command and checkout path."""
+        checkout_path = "/path/to/checkout"
+        with patch("sys.argv", ["ib-perform", checkout_path]):
+            with patch(
+                "ib_pyrelease_utils.basic.release_perform"
+            ) as mock_perform, patch.dict("os.environ", {}, clear=True):
+                main()
+                mock_perform.assert_called_once_with(
+                    checkout_path=Path(checkout_path),
+                    publish_index=None,
+                    token=None,
+                )
+
+    def test_main_ib_perform_with_env_vars(self):
+        """Test main() with ib-perform command and environment variables."""
+        checkout_path = "/path/to/checkout"
+        token = "test_token_123"
+        publish_index = "testpypi"
+        with patch("sys.argv", ["ib-perform", checkout_path]):
+            with patch(
+                "ib_pyrelease_utils.basic.release_perform"
+            ) as mock_perform, patch.dict(
+                "os.environ",
+                {"UV_PUBLISH_TOKEN": token, "UV_PUBLISH_INDEX": publish_index},
+            ):
+                main()
+                mock_perform.assert_called_once_with(
+                    checkout_path=Path(checkout_path),
+                    publish_index=publish_index,
+                    token=token,
+                )
 
 
 class TestReleasePerformEdgeCases(unittest.TestCase):

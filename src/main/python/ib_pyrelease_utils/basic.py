@@ -385,12 +385,31 @@ def release_perform(
 
 
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: check-for-release-properties.py <directory>", file=sys.stderr)
+    """Main entry point for command line usage."""
+    command = sys.argv[0]
+    if command.endswith("ib-prepare"):
+        if len(sys.argv) == 2:
+            next_version = sys.argv[1]
+            release_prepare(next_version)
+        else:
+            release_prepare()
+    elif command.endswith("ib-perform"):
+        if len(sys.argv) == 2:
+            checkout_path = Path(sys.argv[1])
+        else:
+            checkout_path = Path("target/checkout")
+        token = os.environ.get("UV_PUBLISH_TOKEN")
+        publish_index = (
+            os.environ.get("UV_PUBLISH_INDEX")
+            if os.environ.get("UV_PUBLISH_INDEX")
+            else None
+        )
+        release_perform(
+            checkout_path=checkout_path, publish_index=publish_index, token=token
+        )
+    else:
+        print(f"Unknown command: {command}", file=sys.stderr)
         sys.exit(1)
-
-    directory = sys.argv[1]
-    check_for_release(directory)
 
 
 if __name__ == "__main__":

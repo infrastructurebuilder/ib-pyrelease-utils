@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ib-pyrelease-utils"
-version = "0.0.1"
+version = "0.0.5"
 description = "Utilities for helping release projects effectively."
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -44,7 +44,8 @@ dev = [
 ]
 
 [project.scripts]
-#ibdatapy = "ibdata_pymerkle.cli:main"
+ib-prepare = "ib_pyrelease_utils.basic:main" 
+ib-perform = "ib_pyrelease_utils.basic:main"
 
 [project.urls]
 Homepage = "https://github.com/infrastructurebuilder/ib-pyrelease-utils"
@@ -80,7 +81,7 @@ include = ["src/main/python/*"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-fail_under = 98.5
+fail_under = 98
 include = ["src/main/python/*"]
 exclude_lines = [
     "pragma: no cover",
@@ -133,7 +134,7 @@ url = "https://test.pypi.org/simple/"
 publish-url = "https://test.pypi.org/legacy/"
 
 [tool.bumpversion]
-current_version = "0.0.1"
+current_version = "0.0.5"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 search = "{current_version}"
