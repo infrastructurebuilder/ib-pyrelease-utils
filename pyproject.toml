@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ib-pyrelease-utils"
-version = "0.0.1"
+version = "0.0.6"
 description = "Utilities for helping release projects effectively."
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -139,7 +139,7 @@ url = "https://test.pypi.org/simple/"
 publish-url = "https://test.pypi.org/legacy/"
 
 [tool.bumpversion]
-current_version = "0.0.1"
+current_version = "0.0.6"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 search = "{current_version}"
