@@ -7,9 +7,9 @@ Ensure that any python commands are performed using the `uv` virtual environment
 When creating python code, keep line length within the limit defined in the project's configuration (usually 88 characters for `black`).
 
 When working on this project, ensure that linting, formatting, and testing are performed before calling the work done.
-Use `make lint` for linting, `make lint-fix` for fixing linting issues, `make format` for formatting, and `make test` for testing.
+Use `just lint` for linting, `just lint-fix` for fixing linting issues, `just format` for formatting, and `just test` for testing.
 
-If `make lint` detects issues, try running `make lint-fix`  to automatically fix them before attempting other changes.
+If `just lint` detects issues, try running `just lint-fix`  to automatically fix them before attempting other changes.
 
 When working on this project, ensure that linting, formatting, and testing are performed before calling the work done.
 
@@ -32,4 +32,4 @@ When adding new features or making changes to the code, ensure that you do not b
 When making changes to the code, ensure that you do not introduce any new dependencies unless they are necessary for the functionality of the code. If you do introduce new dependencies, ensure that they are documented in the project's documentation and that they are tested before committing the changes.
 
 When adding new features or changing existing code, write new tests that test the functionality added.
-Make sure code coverage requirements are met as noted by `make test-cov` and the associated project configuration for test coverage.
+Make sure code coverage requirements are met as noted by `just test-cov` and the associated project configuration for test coverage.

@@ -1,15 +1,47 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import NoReturn, Optional, Union
+
+# Accepted anywhere a filesystem location is taken; converted via Path().
+PathLike = Union[str, Path]
+
+# Command used to run the "clean" and "build" targets inside the release
+# checkout. Any tool exposing those two targets works -- "just", "make",
+# "task", a wrapper script -- so it is configurable rather than hard-coded.
+DEFAULT_BUILD_TOOL = "just"
+
+# Environment variable consulted for the build tool when no explicit value is
+# supplied, so `uv tool install`ed scripts can be steered without editing code.
+BUILD_TOOL_ENV_VAR = "IB_BUILD_TOOL"
+
+
+def resolve_build_tool(build_tool: Optional[str] = None) -> str:
+    """Resolve which build tool to invoke.
+
+    Precedence: explicit argument, then $IB_BUILD_TOOL, then "just". Blank
+    values at either level fall through to the next source.
+    """
+    return build_tool or os.environ.get(BUILD_TOOL_ENV_VAR) or DEFAULT_BUILD_TOOL
+
+
+class _ArgumentParser(argparse.ArgumentParser):
+    """ArgumentParser that exits 1 on usage errors instead of argparse's 2."""
+
+    def error(self, message: str) -> NoReturn:
+        self.print_usage(sys.stderr)
+        print(f"❌ {message}", file=sys.stderr)
+        sys.exit(1)
 
 
 def read_properties_file(file_path: Path) -> dict:
     """Read a properties file and return a dictionary of its contents.
     Prints error but returns empty dict if file not found or error occurs."""
-    properties = {}
+    properties: dict = {}
 
     if not file_path.exists():
         print(
@@ -37,7 +69,7 @@ def read_properties_file(file_path: Path) -> dict:
     return properties
 
 
-def check_for_release(directory_path: str) -> None:
+def check_for_release(directory_path: PathLike) -> None:
     """Check if release.properties file exists in the given directory."""
     directory = Path(directory_path)
 
@@ -54,13 +86,13 @@ def check_for_release(directory_path: str) -> None:
     if release_properties_file.exists():
         print(
             "❌ Error: release.properties file already exists. "
-            "Please remove it before proceeding or perform make release-perform.",
+            "Please remove it before proceeding or perform just release-perform.",
             file=sys.stderr,
         )
         sys.exit(1)
 
 
-def ensure_empty_directory(directory_path: str) -> None:
+def ensure_empty_directory(directory_path: PathLike) -> None:
     """Ensure the given directory is empty, creating it if necessary."""
     directory = Path(directory_path)
 
@@ -107,8 +139,8 @@ def run_command_or_fail(
     command: str,
     args: list,
     cwd: Path = Path("."),
-    errmsg: str = None,
-    secrets: list = [],
+    errmsg: Optional[str] = None,
+    secrets: Optional[list] = None,
 ) -> str:
     """Run a command with the given arguments and return its output.
     If the command fails, print an error message and exit.
@@ -130,7 +162,7 @@ def run_command_or_fail(
         return result.stdout.strip()
     except subprocess.CalledProcessError as e:
         error_message = f"❌ Error running {command} {' '.join(args)}: {e}"
-        for secret in secrets:
+        for secret in secrets or []:
             error_message = error_message.replace(secret, "****")
         print(error_message)
         if errmsg:
@@ -145,12 +177,17 @@ def run_command_or_fail(
         sys.exit(1)
 
 
-def uv(args: list, cwd: Path = Path(".")) -> str:
-    """Run uv with the given arguments and return the CompletedProcess."""
-    return run_command_or_fail("uv", args, cwd)
+def uv(args: list, cwd: Path = Path("."), secrets: Optional[list] = None) -> str:
+    """Run uv with the given arguments and return the CompletedProcess.
+
+    ``secrets`` are redacted from the error message if the command fails, so
+    credentials passed on the command line (e.g. ``uv publish --token``) do not
+    leak into the output.
+    """
+    return run_command_or_fail("uv", args, cwd, secrets=secrets)
 
 
-def git(args: list, cwd: Path = Path("."), errmsg: str = None) -> str:
+def git(args: list, cwd: Path = Path("."), errmsg: Optional[str] = None) -> str:
     """Run git with the given arguments."""
     return run_command_or_fail("git", args, cwd, errmsg, [])
 
@@ -255,7 +292,7 @@ def create_tag_for_version(next_version: str, cwd: Path = Path(".")) -> str:
     return release_tag
 
 
-def release_prepare(next_version: str = None) -> None:
+def release_prepare(next_version: Optional[str] = None) -> None:
     """Prepare the release checkout."""
 
     print("📦 Preparing release checkout...")
@@ -268,7 +305,10 @@ def release_prepare(next_version: str = None) -> None:
         next_version = get_next_version()
         print(f"ℹ️🔢 Will use {next_version} as a patch increment")
 
-    props = create_tag_for_version(next_version, repo_dir)
+    # create_tag_for_version returns the release tag, not a path; the
+    # release.properties it writes always lands in repo_dir.
+    create_tag_for_version(next_version, repo_dir)
+    props = repo_dir / "release.properties"
     pf = read_properties_file(props)
     release_tag = pf.get("scm.tag", "MISSING")
     if release_tag == "MISSING":
@@ -278,14 +318,22 @@ def release_prepare(next_version: str = None) -> None:
 
 def release_perform(
     checkout_path: Path = Path("target/checkout"),
-    publish_index: str = None,
-    token: str = None,
+    publish_index: Optional[str] = None,
+    token: Optional[str] = None,
+    build_tool: Optional[str] = None,
 ) -> None:
-    """Perform the release checkout."""
+    """Perform the release checkout.
+
+    ``build_tool`` names the command run as ``<tool> clean build`` inside the
+    checkout; see :func:`resolve_build_tool` for how it is resolved.
+    """
 
     print("📦 Performing release checkout...")
     print("===============================")
     checkout_path = checkout_path.absolute()
+    # Captured before any chdir so every path below is anchored explicitly
+    # rather than resolved against whatever the current directory happens to be.
+    previous_dir = Path.cwd().absolute()
     ensure_empty_directory(checkout_path)
     if not checkout_path.exists():
         print(
@@ -294,7 +342,7 @@ def release_perform(
             file=sys.stderr,
         )
         sys.exit(1)
-    pf = read_properties_file("release.properties")
+    pf = read_properties_file(previous_dir / "release.properties")
     release_tag = pf.get("scm.tag", "MISSING")
     if release_tag == "MISSING" or release_tag == "":
         print("❌ Error: 'scm.tag' not found in release.properties", file=sys.stderr)
@@ -303,21 +351,20 @@ def release_perform(
     git(["clone", "--depth", "1", "--branch", release_tag, ".", checkout_path])
     print(f"✅ Repository successfully checked out to {checkout_path}")
     print("🔧 Checking for .envrc file...")
-    if Path(".envrc").exists():
+    source_envrc = previous_dir / ".envrc"
+    if source_envrc.exists():
         print("📋 Found .envrc file, copying to checkout directory...")
-        run_command_or_fail("cp", [".envrc", checkout_path])
+        run_command_or_fail("cp", [source_envrc, checkout_path])
         print(f"✅ .envrc copied to {checkout_path}")
     else:
         print("ℹ️  No .envrc file found, skipping direnv setup")
-
-    previous_dir = Path.cwd().absolute()
 
     print("🚀 Preparing release to PyPI...")
     print("===============================")
     print("")
     print(f"📦 Changing to {checkout_path} directory...")
     os.chdir(checkout_path)
-    if Path(".envrc").exists():
+    if (checkout_path / ".envrc").exists():
         print("🔐 Running direnv allow...")
         run_command_or_fail("direnv", ["allow"], checkout_path)
         print("✅ direnv allow executed")
@@ -327,8 +374,17 @@ def release_perform(
     print(f"🧪 Running validation in checkout directory {checkout_path}...")
     print("==============================================")
     print("")
-    print("🧹 📦 Running make clean build...")
-    run_command_or_fail("make", ["clean", "build"])
+    tool = resolve_build_tool(build_tool)
+    print(f"🧹 📦 Running {tool} clean build...")
+    run_command_or_fail(
+        tool,
+        ["clean", "build"],
+        cwd=checkout_path,
+        errmsg=(
+            f"💡 '{tool}' must expose 'clean' and 'build' targets. "
+            f"Choose another with --build-tool or ${BUILD_TOOL_ENV_VAR}."
+        ),
+    )
     print("")
     ensure_no_changed_files(checkout_path)
     print("✅ All validation steps completed successfully!")
@@ -343,7 +399,7 @@ def release_perform(
             "Probably UV_PUBLISH_TOKEN environment variable is not set"
         )
         print("📝 Please set your token")
-        print(" and re-run make release-perform")
+        print(" and re-run just release-perform")
         print("   export UV_PUBLISH_TOKEN=your_token_here")
         sys.exit(1)
 
@@ -384,13 +440,84 @@ def release_perform(
 # @echo ""
 
 
-def main():
-    if len(sys.argv) != 2:
-        print("Usage: check-for-release-properties.py <directory>", file=sys.stderr)
-        sys.exit(1)
+def main() -> None:
+    """Entry point for ``ib-check-release``.
 
-    directory = sys.argv[1]
-    check_for_release(directory)
+    Usage: ib-check-release <directory>
+
+    Exits non-zero if the directory already contains a release.properties,
+    which would mean a prepared release is still pending.
+    """
+    parser = _ArgumentParser(
+        prog="ib-check-release",
+        description=("Check that a directory has no leftover release.properties file."),
+    )
+    parser.add_argument(
+        "directory",
+        help="directory to check for a release.properties file",
+    )
+    args = parser.parse_args()
+
+    check_for_release(args.directory)
+
+
+def prepare_main() -> None:
+    """Entry point for ``ib-prepare``.
+
+    Usage: ib-prepare [next_version]
+
+    With no argument the next version is derived as a patch increment.
+    """
+    parser = _ArgumentParser(
+        prog="ib-prepare",
+        description="Tag the current version and bump the repo to the next one.",
+    )
+    parser.add_argument(
+        "next_version",
+        nargs="?",
+        default=None,
+        help="version to bump to after tagging (default: a patch increment)",
+    )
+    args = parser.parse_args()
+
+    release_prepare(args.next_version)
+
+
+def perform_main() -> None:
+    """Entry point for ``ib-perform``.
+
+    Usage: ib-perform [checkout_path] [--build-tool TOOL]
+
+    The PyPI token is read from UV_PUBLISH_TOKEN and the optional target index
+    from UV_PUBLISH_INDEX.
+    """
+    parser = _ArgumentParser(
+        prog="ib-perform",
+        description="Check out the release tag, validate it, and publish to PyPI.",
+    )
+    parser.add_argument(
+        "checkout_path",
+        nargs="?",
+        default="target/checkout",
+        help="directory to check the release tag out into (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--build-tool",
+        metavar="TOOL",
+        default=None,
+        help=(
+            "command run as '<TOOL> clean build' inside the checkout "
+            f"(default: {DEFAULT_BUILD_TOOL}, or ${BUILD_TOOL_ENV_VAR} if set)"
+        ),
+    )
+    args = parser.parse_args()
+
+    release_perform(
+        checkout_path=Path(args.checkout_path),
+        publish_index=os.environ.get("UV_PUBLISH_INDEX") or None,
+        token=os.environ.get("UV_PUBLISH_TOKEN") or None,
+        build_tool=args.build_tool,
+    )
 
 
 if __name__ == "__main__":

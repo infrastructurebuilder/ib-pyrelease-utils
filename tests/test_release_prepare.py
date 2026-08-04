@@ -21,7 +21,7 @@ class TestReleasePrepare(unittest.TestCase):
         self.temp_dir_path = Path(self.temp_dir)
 
         # Copy testbmv tree into temp directory
-        testbmv_src = Path.cwd() / "src" / "test" / "resources" / "testbmv"
+        testbmv_src = Path.cwd() / "tests" / "resources" / "testbmv"
         if testbmv_src.exists():
             # Copy all files from testbmv
             for item in testbmv_src.iterdir():
@@ -171,7 +171,11 @@ class TestReleasePrepare(unittest.TestCase):
     def test_release_prepare_calls_read_properties_file(self):
         """Test that release_prepare calls read_properties_file."""
         next_version = "0.2.0"
-        props_path = Path("release.properties")
+        # create_tag_for_version returns the release tag (see
+        # test_create_tag_for_version), so release_prepare derives the
+        # release.properties path from the repo dir rather than from that
+        # return value.
+        expected_props_path = Path.cwd() / "release.properties"
 
         with patch(
             "ib_pyrelease_utils.basic.create_tag_for_version"
@@ -180,7 +184,7 @@ class TestReleasePrepare(unittest.TestCase):
         ) as mock_read_props, patch(
             "builtins.print"
         ):
-            mock_create_tag.return_value = props_path
+            mock_create_tag.return_value = "v0.1.0"
             mock_read_props.return_value = {"scm.tag": "v0.1.0"}
 
             release_prepare(next_version)
@@ -188,7 +192,7 @@ class TestReleasePrepare(unittest.TestCase):
             # Verify read_properties_file was called with props path
             mock_read_props.assert_called_once()
             call_args = mock_read_props.call_args_list[0]
-            self.assertEqual(call_args[0][0], props_path)
+            self.assertEqual(call_args[0][0], expected_props_path)
 
     def test_release_prepare_verifies_scm_tag_exists(self):
         """Test that release_prepare verifies scm.tag exists in properties."""

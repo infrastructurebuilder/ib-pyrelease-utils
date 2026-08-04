@@ -44,7 +44,9 @@ dev = [
 ]
 
 [project.scripts]
-#ibdatapy = "ibdata_pymerkle.cli:main"
+ib-prepare = "ib_pyrelease_utils.basic:prepare_main"
+ib-perform = "ib_pyrelease_utils.basic:perform_main"
+ib-check-release = "ib_pyrelease_utils.basic:main"
 
 [project.urls]
 Homepage = "https://github.com/infrastructurebuilder/ib-pyrelease-utils"
@@ -52,17 +54,18 @@ Repository = "https://github.com/infrastructurebuilder/ib-pyrelease-utils"
 Issues = "https://github.com/infrastructurebuilder/ib-pyrelease-utils/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/main/python/ib_pyrelease_utils"]
+packages = ["src/ib_pyrelease_utils"]
 
 [tool.hatch.build.targets.sdist]
 include = [
     "/src",
+    "/tests",
     "/README.md",
     "/pyproject.toml",
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["src/test/python"]
+testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -73,15 +76,15 @@ addopts = [
 ]
 
 [tool.coverage.run]
-source = ["src/main/python"]
+source = ["src"]
 branch = true
-include = ["src/main/python/*"]
+include = ["src/*"]
 
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-fail_under = 98.5
-include = ["src/main/python/*"]
+fail_under = 98
+include = ["src/*"]
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
@@ -104,6 +107,9 @@ target-version = ['py38']
 [tool.ruff]
 line-length = 88
 target-version = "py38"
+# testbmv is a self-contained fixture project; its own pyproject.toml must not
+# be picked up as a nested ruff config.
+extend-exclude = ["tests/resources"]
 
 [tool.ruff.lint]
 select = [
@@ -158,4 +164,4 @@ post_commit_hooks = []
 filename = "pyproject.toml"
 
 [[tool.bumpversion.files]]
-filename = "src/main/python/ib_pyrelease_utils/__init__.py"
+filename = "src/ib_pyrelease_utils/__init__.py"

@@ -1,0 +1,15 @@
+# Fixture project driven by `just`.
+#
+# Exercises the build-tool contract release_perform depends on: a `clean`
+# target and a `build` target. `build` records which tool ran so a test can
+# tell this fixture apart from the Makefile one.
+
+marker := "build.marker"
+
+# Remove the build marker
+clean:
+    rm -f {{ marker }}
+
+# Record that `just` performed the build
+build:
+    echo "just" > {{ marker }}

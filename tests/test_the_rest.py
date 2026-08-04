@@ -12,6 +12,8 @@ from ib_pyrelease_utils.basic import (
     get_next_version,
     git,
     main,
+    perform_main,
+    prepare_main,
     uv,
 )
 
@@ -25,9 +27,21 @@ class TestHelperFunctions(unittest.TestCase):
             mock_run.return_value = "output"
             result = uv(["publish", "--token", "token123"])
             mock_run.assert_called_once_with(
-                "uv", ["publish", "--token", "token123"], Path(".")
+                "uv", ["publish", "--token", "token123"], Path("."), secrets=None
             )
             self.assertEqual(result, "output")
+
+    def test_uv_forwards_secrets(self):
+        """Test that uv() forwards secrets so they are redacted on failure."""
+        with patch("ib_pyrelease_utils.basic.run_command_or_fail") as mock_run:
+            mock_run.return_value = "output"
+            uv(["publish", "--token", "token123"], secrets=["token123"])
+            mock_run.assert_called_once_with(
+                "uv",
+                ["publish", "--token", "token123"],
+                Path("."),
+                secrets=["token123"],
+            )
 
     def test_uv_with_custom_cwd(self):
         """Test that uv() passes custom cwd to run_command_or_fail."""
@@ -35,7 +49,7 @@ class TestHelperFunctions(unittest.TestCase):
         with patch("ib_pyrelease_utils.basic.run_command_or_fail") as mock_run:
             mock_run.return_value = "output"
             result = uv(["sync"], cwd=custom_dir)
-            mock_run.assert_called_once_with("uv", ["sync"], custom_dir)
+            mock_run.assert_called_once_with("uv", ["sync"], custom_dir, secrets=None)
             self.assertEqual(result, "output")
 
     def test_git_calls_run_command_or_fail(self):
@@ -267,6 +281,26 @@ class TestMainFunction(unittest.TestCase):
                 main()
                 mock_check.assert_called_once_with(test_dir)
 
+    def test_main_unknown_option_exits_one(self):
+        """An unrecognised flag exits 1 rather than argparse's default 2."""
+        with patch("sys.argv", ["ib-check-release", "--nope"]), patch(
+            "sys.stderr"
+        ), patch("ib_pyrelease_utils.basic.check_for_release") as mock_check:
+            with self.assertRaises(SystemExit) as cm:
+                main()
+            self.assertEqual(cm.exception.code, 1)
+            mock_check.assert_not_called()
+
+    def test_main_help_exits_zero(self):
+        """--help is handled by the parser and exits successfully."""
+        with patch("sys.argv", ["ib-check-release", "--help"]), patch(
+            "sys.stdout"
+        ), patch("ib_pyrelease_utils.basic.check_for_release") as mock_check:
+            with self.assertRaises(SystemExit) as cm:
+                main()
+            self.assertEqual(cm.exception.code, 0)
+            mock_check.assert_not_called()
+
 
 class TestReleasePerformEdgeCases(unittest.TestCase):
     """Test edge cases in release_perform not covered by test_release_perform.py."""
@@ -391,6 +425,114 @@ class TestReleasePerformEdgeCases(unittest.TestCase):
             self.assertIn("--token", args)
             # Should NOT have --index when publish_index is None
             self.assertNotIn("--index", args)
+
+
+class TestPrepareMain(unittest.TestCase):
+    """Test the ib-prepare console script entry point."""
+
+    def test_prepare_main_without_version(self):
+        """prepare_main() passes None when no version argument is given."""
+        with patch("sys.argv", ["ib-prepare"]), patch(
+            "ib_pyrelease_utils.basic.release_prepare"
+        ) as mock_prepare:
+            prepare_main()
+            mock_prepare.assert_called_once_with(None)
+
+    def test_prepare_main_with_version(self):
+        """prepare_main() forwards an explicit version argument."""
+        with patch("sys.argv", ["ib-prepare", "1.2.3"]), patch(
+            "ib_pyrelease_utils.basic.release_prepare"
+        ) as mock_prepare:
+            prepare_main()
+            mock_prepare.assert_called_once_with("1.2.3")
+
+    def test_prepare_main_with_too_many_arguments(self):
+        """prepare_main() exits with error when given extra arguments."""
+        with patch("sys.argv", ["ib-prepare", "1.2.3", "extra"]), patch(
+            "sys.stderr"
+        ), patch("ib_pyrelease_utils.basic.release_prepare") as mock_prepare:
+            with self.assertRaises(SystemExit) as cm:
+                prepare_main()
+            self.assertEqual(cm.exception.code, 1)
+            mock_prepare.assert_not_called()
+
+    def test_prepare_main_unknown_option_exits_one(self):
+        """An unrecognised flag exits 1 rather than argparse's default 2."""
+        with patch("sys.argv", ["ib-prepare", "--nope"]), patch("sys.stderr"), patch(
+            "ib_pyrelease_utils.basic.release_prepare"
+        ) as mock_prepare:
+            with self.assertRaises(SystemExit) as cm:
+                prepare_main()
+            self.assertEqual(cm.exception.code, 1)
+            mock_prepare.assert_not_called()
+
+    def test_prepare_main_help_exits_zero(self):
+        """--help is handled by the parser and exits successfully."""
+        with patch("sys.argv", ["ib-prepare", "--help"]), patch("sys.stdout"), patch(
+            "ib_pyrelease_utils.basic.release_prepare"
+        ) as mock_prepare:
+            with self.assertRaises(SystemExit) as cm:
+                prepare_main()
+            self.assertEqual(cm.exception.code, 0)
+            mock_prepare.assert_not_called()
+
+
+class TestPerformMain(unittest.TestCase):
+    """Test the ib-perform console script entry point."""
+
+    def test_perform_main_defaults(self):
+        """perform_main() uses the default checkout path and env credentials."""
+        with patch("sys.argv", ["ib-perform"]), patch(
+            "ib_pyrelease_utils.basic.release_perform"
+        ) as mock_perform, patch.dict(
+            "os.environ",
+            {"UV_PUBLISH_TOKEN": "tok", "UV_PUBLISH_INDEX": "testpypi"},
+            clear=True,
+        ):
+            perform_main()
+            mock_perform.assert_called_once_with(
+                checkout_path=Path("target/checkout"),
+                publish_index="testpypi",
+                token="tok",
+                build_tool=None,
+            )
+
+    def test_perform_main_with_explicit_checkout_path(self):
+        """perform_main() forwards an explicit checkout path."""
+        with patch("sys.argv", ["ib-perform", "some/where"]), patch(
+            "ib_pyrelease_utils.basic.release_perform"
+        ) as mock_perform, patch.dict("os.environ", {}, clear=True):
+            perform_main()
+            mock_perform.assert_called_once_with(
+                checkout_path=Path("some/where"),
+                publish_index=None,
+                token=None,
+                build_tool=None,
+            )
+
+    def test_perform_main_missing_env_becomes_none(self):
+        """perform_main() maps empty env vars to None rather than empty strings."""
+        with patch("sys.argv", ["ib-perform"]), patch(
+            "ib_pyrelease_utils.basic.release_perform"
+        ) as mock_perform, patch.dict(
+            "os.environ",
+            {"UV_PUBLISH_TOKEN": "", "UV_PUBLISH_INDEX": ""},
+            clear=True,
+        ):
+            perform_main()
+            _, kwargs = mock_perform.call_args
+            self.assertIsNone(kwargs["token"])
+            self.assertIsNone(kwargs["publish_index"])
+
+    def test_perform_main_with_too_many_arguments(self):
+        """perform_main() exits with error when given extra arguments."""
+        with patch("sys.argv", ["ib-perform", "a", "b"]), patch("sys.stderr"), patch(
+            "ib_pyrelease_utils.basic.release_perform"
+        ) as mock_perform:
+            with self.assertRaises(SystemExit) as cm:
+                perform_main()
+            self.assertEqual(cm.exception.code, 1)
+            mock_perform.assert_not_called()
 
 
 if __name__ == "__main__":

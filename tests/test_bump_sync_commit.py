@@ -21,7 +21,7 @@ class TestBumpSyncCommit(unittest.TestCase):
         self.temp_dir_path = Path(self.temp_dir)
 
         # Copy testbmv tree into temp directory
-        testbmv_src = Path.cwd() / "src" / "test" / "resources" / "testbmv"
+        testbmv_src = Path.cwd() / "tests" / "resources" / "testbmv"
         if testbmv_src.exists():
             # Copy all files from testbmv
             for item in testbmv_src.iterdir():

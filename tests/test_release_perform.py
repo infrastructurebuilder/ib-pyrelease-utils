@@ -22,7 +22,7 @@ class TestReleasePerform(unittest.TestCase):
         self.temp_dir_path = Path(self.temp_dir)
 
         # Copy testbmv tree into temp directory
-        testbmv_src = Path.cwd() / "src" / "test" / "resources" / "testbmv"
+        testbmv_src = Path.cwd() / "tests" / "resources" / "testbmv"
         if testbmv_src.exists():
             # Copy all files from testbmv
             for item in testbmv_src.iterdir():
@@ -495,6 +495,79 @@ class TestReleasePerform(unittest.TestCase):
             # The last call should be to the original directory
             last_chdir_call = mock_chdir.call_args_list[-1]
             self.assertIn(str(original_dir), str(last_chdir_call))
+
+
+class TestReleasePerformSourceEnvrc(unittest.TestCase):
+    """Test the source-repo .envrc handling in release_perform.
+
+    Path.cwd() is patched so these do not depend on whether the developer's
+    own checkout happens to contain an .envrc file.
+    """
+
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        self.temp_dir_path = Path(self.temp_dir)
+        self.source_dir = self.temp_dir_path / "source"
+        self.source_dir.mkdir()
+        self.checkout_path = self.temp_dir_path / "checkout"
+        self.checkout_path.mkdir()
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir)
+
+    def _run(self):
+        """Run release_perform against the temp source/checkout dirs."""
+        with patch("ib_pyrelease_utils.basic.ensure_empty_directory"), patch(
+            "ib_pyrelease_utils.basic.git"
+        ), patch(
+            "ib_pyrelease_utils.basic.read_properties_file"
+        ) as mock_read_props, patch(
+            "ib_pyrelease_utils.basic.run_command_or_fail"
+        ) as mock_run_cmd, patch(
+            "ib_pyrelease_utils.basic.ensure_no_changed_files"
+        ), patch(
+            "ib_pyrelease_utils.basic.uv"
+        ), patch(
+            "builtins.print"
+        ), patch(
+            "os.chdir"
+        ), patch(
+            "pathlib.Path.cwd", return_value=self.source_dir
+        ):
+            mock_read_props.return_value = {"scm.tag": "v0.1.0"}
+            mock_run_cmd.return_value = ""
+            release_perform(self.checkout_path, token="tok")
+            return mock_run_cmd
+
+    def test_source_envrc_absent_is_not_copied(self):
+        """No .envrc in the source repo means no copy and no direnv."""
+        mock_run_cmd = self._run()
+        cp_calls = [c for c in mock_run_cmd.call_args_list if c[0][0] == "cp"]
+        direnv_calls = [c for c in mock_run_cmd.call_args_list if c[0][0] == "direnv"]
+        self.assertEqual(len(cp_calls), 0)
+        self.assertEqual(len(direnv_calls), 0)
+
+    def test_source_envrc_present_is_copied(self):
+        """An .envrc in the source repo is copied to the checkout directory."""
+        source_envrc = self.source_dir / ".envrc"
+        source_envrc.write_text("export FOO=bar\n", encoding="utf-8")
+
+        mock_run_cmd = self._run()
+        cp_calls = [c for c in mock_run_cmd.call_args_list if c[0][0] == "cp"]
+        self.assertEqual(len(cp_calls), 1)
+        # Copied from the source repo's absolute path, not a cwd-relative one.
+        self.assertEqual(cp_calls[0][0][1], [source_envrc, self.checkout_path])
+
+    def test_checkout_directory_missing_exits(self):
+        """release_perform exits when the checkout directory does not exist."""
+        missing = self.temp_dir_path / "does_not_exist"
+
+        with patch("ib_pyrelease_utils.basic.ensure_empty_directory"), patch(
+            "builtins.print"
+        ), patch("sys.stderr"):
+            with self.assertRaises(SystemExit) as cm:
+                release_perform(missing, token="tok")
+            self.assertEqual(cm.exception.code, 1)
 
 
 if __name__ == "__main__":
