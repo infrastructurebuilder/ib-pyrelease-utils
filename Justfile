@@ -238,24 +238,3 @@ clean-venv: clean
 # Install deps, run checks, and test
 all: dev-install check test
 
-# Show useful uv commands
-show-commands:
-    @echo ""
-    @echo "🔧 Useful commands:"
-    @echo "  just dev-install              # Install all dev dependencies"
-    @echo "  just test                     # Run the test suite"
-    @echo "  just test-cov                 # Run tests with coverage"
-    @echo "  just lint                     # Lint code"
-    @echo "  just format                   # Format code"
-    @echo "  just type-check               # Type check code"
-    @echo "  just bump minor               # Bump the minor version"
-    @echo "  just set-version 1.2.3        # Set version to a specific version"
-    @echo "  just build                    # Build the package"
-    @echo "  just release-prepare          # Prepare release (patch increment)"
-    @echo "  just release-prepare 1.2.3    # Prepare release with explicit next version"
-    @echo "  just release-perform          # Release to PyPI (needs UV_PUBLISH_TOKEN)"
-    @echo "  just release-perform target/checkout make   # ...building with make"
-    @echo "  just release                  # Complete release workflow"
-    @echo "  just clean                    # Clean build artifacts"
-    @echo "  uv build                      # Build the package directly"
-    @echo "  uv pip install .              # Install the package directly"
