@@ -2,14 +2,9 @@
 
 THIS CODE IS NOT CURRENTLY FINISHED.
 
-These are programs and utility functions to assist with creating consistent releases from a
-project's build tooling. Primarily they are aimed at Python projects, but should (eventually) be
-useful for other languages as well.
+These are programs and utility functions to assist with creating consistent releases from a project's build tooling. Primarily they are aimed at Python projects, but should (eventually) be useful for other languages as well.
 
-The release model is the familiar two-phase *prepare* then *perform* cycle: `prepare` tags the
-current version, bumps the repository to the next one, and records the result in
-`release.properties`; `perform` checks that tag out into an isolated directory, validates it by
-running the project's own `clean` and `build` targets, and publishes it.
+The release model is the familiar two-phase *prepare* then *perform* cycle: `prepare` tags the current version, bumps the repository to the next one, and records the result in `release.properties`; `perform` checks that tag out into an isolated directory, validates it by running the project's own `clean` and `build` targets, and publishes it.
 
 ## Features
 
@@ -25,8 +20,7 @@ All three accept `--help`.
 
 ### Configurable build tool
 
-`ib-perform` validates the isolated checkout by running `<tool> clean build` inside it. Any
-command exposing those two targets works — `just`, `make`, `task`, or a wrapper script.
+`ib-perform` validates the isolated checkout by running `<tool> clean build` inside it. Any command exposing those two targets works — `just`, `make`, `task`, or a wrapper script.
 
 Resolution order is **explicit argument → `$IB_BUILD_TOOL` → `just`**:
 
